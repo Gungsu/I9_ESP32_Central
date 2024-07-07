@@ -33,6 +33,9 @@ LcmVar iconUp(2);
 LcmVar iconDown(3);
 LcmVar vpLoad(55);
 
+LcmVar vpvalue0(98);
+LcmVar vpvalue90(1098);
+
 //uint16_t sens[40];
 uint8_t numTotalSensor = 40;
 uint16_t maxError = 500;
@@ -59,29 +62,9 @@ void initSens() {
   uint8_t c = 40;
   //Retangulos
   Lcm.changePicId(0);
-  Serial.println();
-  while(c--) {
-    if(c<40) {
-      LcmVar retang(objSensores.sensores[c].ret_VP);
-      retang.write(1);
-
-      LcmVar PP_pos_x(objSensores.sensores[c].VP_Pos_x);
-      LcmVar PP_pos_y(objSensores.sensores[c].VP_Pos_y);
-      PP_pos_x.write(objSensores.sensores[c].pos_x);
-      PP_pos_y.write(objSensores.sensores[c].pos_y);
-
-      LcmVar PP_ID_pos_x(objSensores.sensores[c].ID_VP_Pos_x);
-      LcmVar PP_ID_pos_y(objSensores.sensores[c].ID_VP_Pos_y);
-      PP_ID_pos_x.write(objSensores.sensores[c].ID_pos_x);
-      PP_ID_pos_y.write(objSensores.sensores[c].ID_pos_y);
-
-      LcmVar PP_RET_pos_x(objSensores.sensores[c].RET_VP_Pos_x);
-      LcmVar PP_RET_pos_y(objSensores.sensores[c].RET_VP_Pos_y);
-      PP_RET_pos_x.write(objSensores.sensores[c].RET_pos_x);
-      PP_RET_pos_y.write(objSensores.sensores[c].RET_pos_y);
-    }
-  }
+  objSensores.posi_sens();
   max_ERRO.write(maxError);
+  objSensores.dist_sens(4, 0, 1);
 }
 
 void distCheck() {
@@ -117,7 +100,6 @@ void distCheck() {
 }
 
 void reset() {
-  initSens();
   Alerta = false;
 }
 
@@ -155,8 +137,7 @@ void setup() {
   //taskSendMessage.enable();
 }
 
-uint8_t contTest = 1;
-bool ocult = 1;
+uint64_t contDisp = 0;
 
 void loop() {
   // it will run the user scheduler as well
@@ -166,13 +147,6 @@ void loop() {
     //Serial.print("mE: ");
     //Serial.println(maxError);
   }
-
-  if(contTest>40) {
-    contTest = 1;
-    ocult = !ocult;
-  }
-  objSensores.dist_sens(contTest,0,1);
-  contTest++;
 
   if (display_cmds.available()) {
     switch (display_cmds.getData()) {
@@ -212,5 +186,4 @@ void loop() {
           break;
     }
   }
-  delay(5000);
 }

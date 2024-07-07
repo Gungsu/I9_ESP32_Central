@@ -33,20 +33,22 @@ void objSensor::dist_sens(uint8_t qtSens, uint8_t inici, bool apagar)
     if (vFal_Col>40) {
         vFal_Col = 0;
     }
-    if(apagar) {
-        LcmVar ID_PP2(sensores[cont].ID_value_VP);
-        sensores[cont].ID_value_num = qtSens;
-        ID_PP2.write(sensores[cont].ID_value_num);
-    }
     while (cont < 40)
     {
         //Serial.print(cont);
+        LcmVar ID_PP2(sensores[cont].ID_value_VP); // PARA IDENTIFICAR A REFERENCIA DO SENSOR NO DISPLAY
         if(apagar) {
             if ((cont == 0 || cont == nextToCh) && colocado<qtSens)
             {
                 ocult(cont, 0);
                 nextToCh += distri;
                 colocado++;
+                sensores[cont].ID_value_num = colocado;
+                ID_PP2.write(sensores[cont].ID_value_num);
+                Serial.print("ID: ");
+                Serial.print(sensores[cont].ID_value_VP);
+                Serial.print(" value: ");
+                Serial.println(sensores[cont].ID_value_num);
             }
             else
             {
@@ -61,6 +63,12 @@ void objSensor::dist_sens(uint8_t qtSens, uint8_t inici, bool apagar)
                 ocult(cont, 0);
                 nextToCh += distri;
                 colocado++;
+                sensores[cont].ID_value_num = colocado;
+                ID_PP2.write(sensores[cont].ID_value_num);
+                Serial.print("ID: ");
+                Serial.print(sensores[cont].ID_value_VP);
+                Serial.print(" value: ");
+                Serial.println(sensores[cont].ID_value_num);
             }
         }
         cont++;
@@ -78,10 +86,10 @@ void objSensor::dist_sens_init(uint8_t qtSens)
     uint16_t distri = 9;
     while (c < 40)
     {
-        sensores[c].value_PP = c * 100 + 100;
+        sensores[c].value_PP = c * 100 + 100; //PP do numeric displa que marca distancia
+        sensores[c].angle = c * distri;
 
         /*DIST*/
-        sensores[c].angle = c * distri;
         sensores[c].value_VP = sensores[c].value_PP - 0x02;
         sensores[c].VP_Pos_x = sensores[c].value_PP + 0x01;
         sensores[c].VP_Pos_y = sensores[c].value_PP + 0x02;
@@ -95,6 +103,7 @@ void objSensor::dist_sens_init(uint8_t qtSens)
 
         /*ID*/
         sensores[c].ID_angle = c * distri;
+        sensores[c].ID_value_PP = sensores[c].value_PP + 0x1E;
         sensores[c].ID_value_VP = sensores[c].value_PP - 0x04;
         sensores[c].ID_VP_Pos_x = sensores[c].value_PP + 0x1F;
         sensores[c].ID_VP_Pos_y = sensores[c].value_PP + 0x20;
@@ -139,6 +148,50 @@ void objSensor::ocult(uint8_t sens, bool value)
         retang.write(1);
         sensores[sens].visible = true;
     }
+}
+
+void objSensor::posi_sens() {
+    uint8_t c = 40;
+    while (c--)
+    {
+        if (c < 40)
+        {
+            LcmVar retang(sensores[c].ret_VP);
+            retang.write(1);
+
+            LcmVar PP_pos_x(sensores[c].VP_Pos_x);
+            LcmVar PP_pos_y(sensores[c].VP_Pos_y);
+            LcmVar PP_set_vp(sensores[c].value_PP);
+            PP_pos_x.write(sensores[c].pos_x);
+            PP_pos_y.write(sensores[c].pos_y);
+            PP_set_vp.write(sensores[c].value_VP);
+
+            LcmVar PP_ID_pos_x(sensores[c].ID_VP_Pos_x);
+            LcmVar PP_ID_pos_y(sensores[c].ID_VP_Pos_y);
+            LcmVar PP_ID_set_vp(sensores[c].ID_value_PP);
+            PP_ID_pos_x.write(sensores[c].ID_pos_x);
+            PP_ID_pos_y.write(sensores[c].ID_pos_y);
+            PP_ID_set_vp.write(sensores[c].ID_value_VP);
+
+            LcmVar PP_RET_pos_x(sensores[c].RET_VP_Pos_x);
+            LcmVar PP_RET_pos_y(sensores[c].RET_VP_Pos_y);
+            PP_RET_pos_x.write(sensores[c].RET_pos_x);
+            PP_RET_pos_y.write(sensores[c].RET_pos_y);
+        }
+    }
+}
+
+void objSensor::write(uint8_t sens, uint16_t valor) {
+    uint8_t local = 40;
+    uint8_t idSens;
+    while(local--) {
+        if (sensores[local].ID_value_num == sens) {
+            idSens = local;
+            break;
+        }
+    }
+    LcmVar vpSensor(sensores[idSens].value_VP);
+    vpSensor.write(valor);
 }
 
 void convertPol_Rad(uint16_t &R_X, uint16_t &DG_Y, uint8_t tipo)

@@ -6,6 +6,7 @@ typedef struct
     //geral
     uint16_t value_PP;
     bool visible;
+    bool ativo;
     //numDisplay Dist
     uint16_t pos_x;
     uint16_t pos_y;
@@ -30,8 +31,9 @@ typedef struct
     //numDisplay ID
     uint16_t ID_pos_x;
     uint16_t ID_pos_y;
+    uint16_t ID_value_PP;
     uint16_t ID_value_VP;
-    uint16_t ID_value_num;
+    uint16_t ID_value_num; //REFERENCIA DO SENSOR ###### ID
     uint16_t ID_VP_Pos_x;
     uint16_t ID_VP_Pos_y;
     uint16_t ID_raio_ND_Dist = 145;
@@ -50,6 +52,8 @@ public:
     st_sensor sensores[40];
     void ocult(uint8_t sens, bool value);
     void dist_sens(uint8_t qtSens, uint8_t inici, bool apagar);
+    void posi_sens();
+    void write(uint8_t sens, uint16_t valor);
     objSensor();
     ~objSensor();
 };
