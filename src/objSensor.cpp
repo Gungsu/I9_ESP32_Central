@@ -2,6 +2,9 @@
 #include <UnicViewAD.h>
 #include <math.h>
 
+#define PRETO 0x0000
+#define BRANCO 0xFFFF
+
 enum tip
 {
     NumDISP_DIST,
@@ -37,6 +40,7 @@ void objSensor::dist_sens(uint8_t qtSens, uint8_t inici, bool apagar)
     {
         //Serial.print(cont);
         LcmVar ID_PP2(sensores[cont].ID_value_VP); // PARA IDENTIFICAR A REFERENCIA DO SENSOR NO DISPLAY
+        LcmVar DISTANCIA_VP(sensores[cont].value_VP);
         if(apagar) {
             if ((cont == 0 || cont == nextToCh) && colocado<qtSens)
             {
@@ -45,19 +49,17 @@ void objSensor::dist_sens(uint8_t qtSens, uint8_t inici, bool apagar)
                 colocado++;
                 sensores[cont].ID_value_num = colocado;
                 ID_PP2.write(sensores[cont].ID_value_num);
-                Serial.print("ID: ");
-                Serial.print(sensores[cont].ID_value_VP);
-                Serial.print(" value: ");
-                Serial.println(sensores[cont].ID_value_num);
             }
             else
             {
                 ocult(cont, 1);
+                DISTANCIA_VP.write(0); //ZERA o valor da distancia quando ocultar
             }
         } else {
             if ((cont == 0 || cont == nextToCh) && colocado < qtSens)
             {
-                while(sensores[cont].visible == true) {
+                while (sensores[cont].ativo == true)
+                {
                     cont++;
                 }
                 ocult(cont, 0);
@@ -65,10 +67,6 @@ void objSensor::dist_sens(uint8_t qtSens, uint8_t inici, bool apagar)
                 colocado++;
                 sensores[cont].ID_value_num = colocado;
                 ID_PP2.write(sensores[cont].ID_value_num);
-                Serial.print("ID: ");
-                Serial.print(sensores[cont].ID_value_VP);
-                Serial.print(" value: ");
-                Serial.println(sensores[cont].ID_value_num);
             }
         }
         cont++;
@@ -93,6 +91,7 @@ void objSensor::dist_sens_init(uint8_t qtSens)
         sensores[c].value_VP = sensores[c].value_PP - 0x02;
         sensores[c].VP_Pos_x = sensores[c].value_PP + 0x01;
         sensores[c].VP_Pos_y = sensores[c].value_PP + 0x02;
+        sensores[c].VP_Color = sensores[c].value_PP + 0x03;
         if (c == 0 || c == 20)
         {
             sensores[c].raio_ND_Dist += 5;
@@ -107,6 +106,7 @@ void objSensor::dist_sens_init(uint8_t qtSens)
         sensores[c].ID_value_VP = sensores[c].value_PP - 0x04;
         sensores[c].ID_VP_Pos_x = sensores[c].value_PP + 0x1F;
         sensores[c].ID_VP_Pos_y = sensores[c].value_PP + 0x20;
+        sensores[c].ID_VP_Color = sensores[c].value_PP + 0x21;
 
         convertPol_Rad(sensores[c].ID_raio_ND_Dist, sensores[c].ID_angle, NumDISP_ID);
         sensores[c].ID_pos_x = sensores[c].ID_raio_ND_Dist + 4;
@@ -129,24 +129,30 @@ void objSensor::ocult(uint8_t sens, bool value)
 {
     LcmVar PP_pos_x(sensores[sens].VP_Pos_x);
     LcmVar PP_pos_y(sensores[sens].VP_Pos_y);
+    LcmVar VP_Color(sensores[sens].VP_Color);
     LcmVar PP_ID_pos_x(sensores[sens].ID_VP_Pos_x);
     LcmVar PP_ID_pos_y(sensores[sens].ID_VP_Pos_y);
+    LcmVar VP_ID_Color(sensores[sens].ID_VP_Color);
     LcmVar retang(sensores[sens].ret_VP);
     if(value) {
     //764,464
-        PP_pos_x.write(764);
+        PP_pos_x.write(760);
         PP_pos_y.write(464);
-        PP_ID_pos_x.write(764);
+        VP_Color.write(BRANCO);
+        PP_ID_pos_x.write(760);
         PP_ID_pos_y.write(464);
+        VP_ID_Color.write(BRANCO);
         retang.write(0);
-        sensores[sens].visible = false;
+        sensores[sens].ativo = false;
     } else {    
         PP_pos_x.write(sensores[sens].pos_x);
-        PP_pos_y.write(sensores[sens].pos_y);    
+        PP_pos_y.write(sensores[sens].pos_y);
+        VP_Color.write(PRETO);
         PP_ID_pos_x.write(sensores[sens].ID_pos_x);
         PP_ID_pos_y.write(sensores[sens].ID_pos_y);
+        VP_ID_Color.write(PRETO);
         retang.write(1);
-        sensores[sens].visible = true;
+        sensores[sens].ativo = true;
     }
 }
 
@@ -191,7 +197,59 @@ void objSensor::write(uint8_t sens, uint16_t valor) {
         }
     }
     LcmVar vpSensor(sensores[idSens].value_VP);
-    vpSensor.write(valor);
+    sensores[idSens].value_num = valor;
+    vpSensor.write(sensores[idSens].value_num);
+}
+
+void objSensor::act_alerta(bool active)
+{
+    uint8_t local = 0;
+    bool next = false;
+    if(active) {
+        while(local <40 && !changeAlert) {
+            if(sensores[local].ativo == true) {
+                if ((sensores[local].ID_value_num == sensInAlert1 || sensores[local].ID_value_num == sensInAlert2) && !next)
+                {
+                    idSens1 = local;
+                    next = true;
+                }
+                else if ((sensores[local].ID_value_num == sensInAlert1 || sensores[local].ID_value_num == sensInAlert2) && next)
+                {
+                    idSens2 = local;
+                }
+                if(idSens1 != 0 && idSens2 != 0 && idSens1 != idSens2) {
+                    changeAlert = true;
+                    break;
+                }
+            }
+            local++;
+        }
+        // Serial.print("##MENOR ");
+        // Serial.println(idSens1);
+        // Serial.print("##MAIOR ");
+        // Serial.println(idSens2);
+        LcmVar retang1(sensores[idSens1].ret_VP);
+        LcmVar retang2(sensores[idSens2].ret_VP);
+        /*Serial.print("S1: ");
+        Serial.print(sensores[idSens1].ret_VP);
+        Serial.print(" S2: ");
+        Serial.println(sensores[idSens2].ret_VP);*/
+        if (toggleAlert) {
+            retang1.write(2);
+            retang2.write(2);
+            toggleAlert = !toggleAlert;
+        } else {
+            retang1.write(3);
+            retang2.write(3);
+            toggleAlert = !toggleAlert;
+        }
+    } else {
+        LcmVar retang1(sensores[idSens1].ret_VP);
+        LcmVar retang2(sensores[idSens2].ret_VP);
+        retang1.write(1);
+        retang2.write(1);
+        changeAlert = false;
+    }
 }
 
 void convertPol_Rad(uint16_t &R_X, uint16_t &DG_Y, uint8_t tipo)
