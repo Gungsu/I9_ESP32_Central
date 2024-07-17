@@ -67,6 +67,7 @@ void objSensor::dist_sens(uint8_t qtSens, uint8_t inici, bool apagar)
                 colocado++;
                 sensores[cont].ID_value_num = colocado;
                 ID_PP2.write(sensores[cont].ID_value_num);
+                sensores[cont].ID_put = false;
             }
         }
         cont++;
@@ -193,12 +194,22 @@ void objSensor::write(uint8_t sens, uint16_t valor) {
     while(local--) {
         if (sensores[local].ID_value_num == sens) {
             idSens = local;
+            /*Serial.print(idSens);
+            Serial.print(" ");
+            Serial.print(sens);
+            Serial.print(" ");
+            Serial.println(valor);*/
             break;
         }
     }
     LcmVar vpSensor(sensores[idSens].value_VP);
     sensores[idSens].value_num = valor;
     vpSensor.write(sensores[idSens].value_num);
+    if (!sensores[idSens].ID_put) { //ADICIONA IDENTIFICADOR CONFORME NUMERO FISICO DO SENSOR
+        LcmVar vpIdSensor(sensores[idSens].ID_value_VP);
+        vpIdSensor.write(sensores[idSens].ID_value_num); // ID_value_num
+        sensores[idSens].ID_put = true;
+    }
 }
 
 void objSensor::act_alerta(bool active)

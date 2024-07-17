@@ -24,6 +24,7 @@ namedMesh mesh;
 objSensor objSensores;
 
 void distCheck(uint16_t nValue);
+void but_stop();
 
 LCM Lcm(Serial2);
 
@@ -36,12 +37,14 @@ LcmVar max_DIST(1);
 LcmVar iconUp(2);
 LcmVar iconDown(3);
 LcmVar vpLoad(55);
+LcmVar iconPlay(6);
 
 LcmVar vpvalue0(98);
 LcmVar vpvalue90(1098);
 
 uint8_t numTotalSensorAtivo;
 uint16_t maxError = 500;
+uint16_t maxStep = 2000;
 unsigned long timeCont,timeOld;
 uint16_t maior = 0;
 uint16_t menor = 0xAFFF;
@@ -70,14 +73,15 @@ void initSens() {
   Lcm.changePicId(0);
   objSensores.posi_sens();
   max_ERRO.write(maxError);
+  max_STEP.write(maxStep);
   objSensores.dist_sens(1, 0, 1);
 }
 
 void distCheck(uint16_t nValue) {
   if (Alerta) 
     return;
-  if (nValue<maior && nValue>menor) 
-    return;
+  //if (nValue<maior && nValue>menor) 
+  //  return;
   std::list<uint32_t> numBerNodes = mesh.getNodeList();
   uint8_t nodesSize = numBerNodes.size();
   if (nodesSize != numTotalSensorAtivo) {
@@ -104,14 +108,12 @@ void distCheck(uint16_t nValue) {
     cont++;
   }
   max_DIST.write(maior-menor);
-  if (maior - menor > maxError && waitAlerta)
+  if ((maior - menor > maxError || maior >= maxStep) && waitAlerta) // maior que Distancia Step e Erro
   {
     objSensores.act_alerta(1);
-    if(ST_stop == 0) {
-      ST_stop = 1;
-      Alerta = true;
-      digitalWrite(PIN_EMERG,ST_stop);
-    }
+    Alerta = true;
+    digitalWrite(PIN_EMERG, 0);
+    but_stop();
   }
 }
 
@@ -161,6 +163,19 @@ void setup() {
   Serial.println(" INICIANDO ");
 }
 
+void but_stop() {
+  waitAlerta = false;
+  iconPlay.write(0);
+
+  ST_up = 1; // turnOff UP
+  iconUp.write(!ST_up); 
+  digitalWrite(PIN_MOT_UP, ST_up);
+
+  ST_down = 1;
+  iconDown.write(!ST_down); // turnOff down
+  digitalWrite(PIN_MOT_DOWN, ST_down);
+}
+
 void loop() {
   // it will run the user scheduler as well
   mesh.update();
@@ -169,6 +184,9 @@ void loop() {
     maxError = max_ERRO.getData();
   }
 
+  if (max_STEP.available()) {
+
+  }
   if (Alerta) {
     if (millis() >= timeOld + 1000)
     { // if timeCont<timeOld
@@ -176,54 +194,65 @@ void loop() {
       objSensores.act_alerta(1);
     }
   }
-
+  
   if (display_cmds.available()) {
     switch (display_cmds.getData()) {
         case 0: //STOP
-          ST_stop = 1;
-          digitalWrite(PIN_EMERG,ST_stop);
-          waitAlerta = false;
+          but_stop();
           //Serial.println("STOP");
           break;
         case 1: //PLAY
           if (!Alerta) {
-            ST_stop = 0;
-            digitalWrite(PIN_EMERG,ST_stop);
             waitAlerta = true;
+            iconPlay.write(1);
+            if (!ST_down)
+            {
+              ST_down = !ST_down;
+              iconDown.write(!ST_down);
+              digitalWrite(PIN_MOT_DOWN, ST_down);
+              delay(600);
+            }
+            ST_up = !ST_up;
+            iconUp.write(!ST_up);
+            digitalWrite(PIN_MOT_UP, ST_up);
           }
           //Serial.println("PLAY");
           break;
         case 2: //UP
-          if(!ST_down) {
+            if (Alerta) break;
+              if (!ST_down)
+              {
+                ST_down = !ST_down;
+                iconDown.write(!ST_down);
+                digitalWrite(PIN_MOT_DOWN, ST_down);
+                delay(600);
+              }
+              ST_up = !ST_up;
+              iconUp.write(!ST_up);
+              digitalWrite(PIN_MOT_UP, ST_up);
+              // Serial.println("UP");
+            break;
+          case 3: // DOWN  RESET PROVISORIO
+            if (Alerta)
+              break;
+            if (!ST_up)
+            {
+              ST_up = !ST_up;
+              iconUp.write(!ST_up);
+              digitalWrite(PIN_MOT_UP, ST_up);
+              delay(600);
+            }
             ST_down = !ST_down;
             iconDown.write(!ST_down);
             digitalWrite(PIN_MOT_DOWN, ST_down);
-            delay(600);
+            // Serial.println("DOWN");
+            break;
+          case 4: // RESET
+            // Serial.println("RESET");
+            reset();
+            break;
+          default:
+            break;
           }
-          ST_up = !ST_up;
-          iconUp.write(!ST_up);
-          digitalWrite(PIN_MOT_UP,ST_up);
-          //Serial.println("UP");
-          break;
-        case 3: //DOWN  RESET PROVISORIO
-          if (!ST_up)
-          {
-            ST_up = !ST_up;
-            iconUp.write(!ST_up);
-            digitalWrite(PIN_MOT_UP, ST_up);
-            delay(600);
-          }
-          ST_down = !ST_down;
-          iconDown.write(!ST_down);
-          digitalWrite(PIN_MOT_DOWN,ST_down);
-          //Serial.println("DOWN");
-          break;
-        case 4: //RESET
-          //Serial.println("RESET");
-          reset();
-          break;
-        default:
-          break;
-    }
   }
 }

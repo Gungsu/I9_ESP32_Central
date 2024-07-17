@@ -39,6 +39,7 @@ typedef struct
     uint16_t ID_VP_Color;
     uint16_t ID_raio_ND_Dist = 145;
     uint16_t ID_angle;
+    bool ID_put;
 
 } st_sensor;
 
