@@ -53,12 +53,6 @@ bool waitAlerta;
 
 String nodeName = "central_i9"; // Name needs to be unique
 
-Task taskSendMessage( TASK_SECOND*30, TASK_FOREVER, []() {
-    String msg = String("This is a message from: ") + nodeName + String(" for logNode");
-    String to = "logNode";
-    mesh.sendSingle(to, msg); 
-});
-
 void displayWrite(String from, String Value) {
   String c_from = from.substring(1);
   uint8_t sensID = atoi(c_from.c_str());
@@ -118,10 +112,10 @@ void distCheck(uint16_t nValue) {
 }
 
 void reset() {
+  but_stop();
   Alerta = false;
   ST_stop = 1;
   digitalWrite(PIN_EMERG, ST_stop);
-  waitAlerta = false;
   objSensores.act_alerta(0);
 }
 
@@ -158,7 +152,7 @@ void setup() {
   mesh.onChangedConnections([]() {
     Serial.printf("Changed connection\n");
   });
-  
+
   initSens();
   Serial.println(" INICIANDO ");
 }
@@ -176,6 +170,19 @@ void but_stop() {
   digitalWrite(PIN_MOT_DOWN, ST_down);
 }
 
+void but_up() {
+  if (!ST_down)
+  {
+    ST_down = !ST_down;
+    iconDown.write(!ST_down);
+    digitalWrite(PIN_MOT_DOWN, ST_down);
+    delay(600);
+  }
+  ST_up = !ST_up;
+  iconUp.write(!ST_up);
+  digitalWrite(PIN_MOT_UP, ST_up);
+}
+
 void loop() {
   // it will run the user scheduler as well
   mesh.update();
@@ -185,8 +192,13 @@ void loop() {
   }
 
   if (max_STEP.available()) {
-
+    maxStep = max_STEP.getData();
   }
+
+  if (Serial.available()) {
+    Serial.print(Serial.readString());
+  }
+
   if (Alerta) {
     if (millis() >= timeOld + 1000)
     { // if timeCont<timeOld
@@ -209,24 +221,15 @@ void loop() {
             waitAlerta = true;
             iconPlay.write(1);
             delay(600);
-            ST_up = !ST_up;
-            iconUp.write(!ST_up);
-            digitalWrite(PIN_MOT_UP, ST_up);
+            if(ST_up) {
+              but_up();
+            }
           }
           //Serial.println("PLAY");
           break;
         case 2: //UP
             if (Alerta) break;
-            if (!ST_down)
-            {
-              ST_down = !ST_down;
-              iconDown.write(!ST_down);
-              digitalWrite(PIN_MOT_DOWN, ST_down);
-              delay(600);
-            }
-            ST_up = !ST_up;
-            iconUp.write(!ST_up);
-            digitalWrite(PIN_MOT_UP, ST_up);
+            but_up();
             // Serial.println("UP");
             break;
           case 3: // DOWN  RESET PROVISORIO
