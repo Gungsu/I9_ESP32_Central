@@ -33,13 +33,13 @@ typedef struct
     uint16_t ID_pos_y;
     uint16_t ID_value_PP;
     uint16_t ID_value_VP;
-    uint16_t ID_value_num; //REFERENCIA DO SENSOR ###### ID
+    uint16_t ID_value_num; //REFERENCIA DO SENSOR ###### ID ListaCadastro Posicao
     uint16_t ID_VP_Pos_x;
     uint16_t ID_VP_Pos_y;
     uint16_t ID_VP_Color;
     uint16_t ID_raio_ND_Dist = 145;
     uint16_t ID_angle;
-    bool ID_put;
+    bool ID_put = false;
 
 } st_sensor;
 
@@ -48,9 +48,14 @@ class objSensor
 private:
     uint16_t raioP = 200;
     uint16_t raioI = 140;
-    void dist_sens_init(uint8_t qtSens);
+    void dist_sens_init();
 
 public:
+    uint8_t listaCadastroSensores[40][2];
+    /* 0-39 posicao cadastrada
+      0 - Em uso
+      1 - ID_Sensor
+    */
     uint8_t sensInAlert1, sensInAlert2;
     uint8_t idSens1 = 0, idSens2 = 0;
     bool toggleAlert;

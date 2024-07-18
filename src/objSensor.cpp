@@ -14,7 +14,7 @@ enum tip
 
 objSensor::objSensor()
 {
-    dist_sens_init(40);
+    dist_sens_init();
 }
 
 objSensor::~objSensor()
@@ -23,9 +23,8 @@ objSensor::~objSensor()
 
 void objSensor::dist_sens(uint8_t qtSens, uint8_t inici, bool apagar)
 {
-    if(qtSens == 0) {
-        qtSens = 1;
-    }
+    if(qtSens == 0) qtSens = 1;
+    
     float distriF = (40.00 / qtSens)+0.6;
     uint8_t cont = inici;
     uint8_t nextToCh = inici;
@@ -41,6 +40,7 @@ void objSensor::dist_sens(uint8_t qtSens, uint8_t inici, bool apagar)
         //Serial.print(cont);
         LcmVar ID_PP2(sensores[cont].ID_value_VP); // PARA IDENTIFICAR A REFERENCIA DO SENSOR NO DISPLAY
         LcmVar DISTANCIA_VP(sensores[cont].value_VP);
+        listaCadastroSensores[cont][0] = 0;
         if(apagar) {
             if ((cont == 0 || cont == nextToCh) && colocado<qtSens)
             {
@@ -49,6 +49,7 @@ void objSensor::dist_sens(uint8_t qtSens, uint8_t inici, bool apagar)
                 colocado++;
                 sensores[cont].ID_value_num = colocado;
                 ID_PP2.write(sensores[cont].ID_value_num);
+                sensores[cont].ID_put = false;
             }
             else
             {
@@ -79,7 +80,7 @@ void objSensor::dist_sens(uint8_t qtSens, uint8_t inici, bool apagar)
     }
 }
 
-void objSensor::dist_sens_init(uint8_t qtSens)
+void objSensor::dist_sens_init() //PRIMEIRA DEFINICAO DE POSICOES
 {
     uint8_t c = 0;
     uint16_t distri = 9;
@@ -88,7 +89,7 @@ void objSensor::dist_sens_init(uint8_t qtSens)
         sensores[c].value_PP = c * 100 + 100; //PP do numeric displa que marca distancia
         sensores[c].angle = c * distri;
 
-        /*DIST*/
+        /*DISTANCE*/
         sensores[c].value_VP = sensores[c].value_PP - 0x02;
         sensores[c].VP_Pos_x = sensores[c].value_PP + 0x01;
         sensores[c].VP_Pos_y = sensores[c].value_PP + 0x02;
@@ -112,8 +113,9 @@ void objSensor::dist_sens_init(uint8_t qtSens)
         convertPol_Rad(sensores[c].ID_raio_ND_Dist, sensores[c].ID_angle, NumDISP_ID);
         sensores[c].ID_pos_x = sensores[c].ID_raio_ND_Dist + 4;
         sensores[c].ID_pos_y = sensores[c].ID_angle + 8;
+        sensores[c].ID_put = false;
 
-        /*RET*/
+        /*RETANGLE*/
         sensores[c].RET_angle = c * distri;
         sensores[c].ret_VP = 11 + c;
         sensores[c].RET_VP_Pos_x = sensores[c].value_PP + 0x3D;
@@ -122,6 +124,8 @@ void objSensor::dist_sens_init(uint8_t qtSens)
         convertPol_Rad(sensores[c].RET_raio_ND_Dist, sensores[c].RET_angle, RETANGULO);
         sensores[c].RET_pos_x = sensores[c].RET_raio_ND_Dist;
         sensores[c].RET_pos_y = sensores[c].RET_angle;
+
+        listaCadastroSensores[c][0] = 0;
         c++;
     }
 }
@@ -157,7 +161,7 @@ void objSensor::ocult(uint8_t sens, bool value)
     }
 }
 
-void objSensor::posi_sens() {
+void objSensor::posi_sens() { //POSICIONA OS 40 SENSORES RET/ID/DIST
     uint8_t c = 40;
     while (c--)
     {
@@ -184,31 +188,55 @@ void objSensor::posi_sens() {
             LcmVar PP_RET_pos_y(sensores[c].RET_VP_Pos_y);
             PP_RET_pos_x.write(sensores[c].RET_pos_x);
             PP_RET_pos_y.write(sensores[c].RET_pos_y);
+
+            listaCadastroSensores[c][0] = 0; //zera registro de sensores
         }
     }
 }
 
 void objSensor::write(uint8_t sens, uint16_t valor) {
-    uint8_t local = 40;
-    uint8_t idSens;
-    while(local--) {
-        if (sensores[local].ID_value_num == sens) {
-            idSens = local;
-            /*Serial.print(idSens);
-            Serial.print(" ");
-            Serial.print(sens);
-            Serial.print(" ");
-            Serial.println(valor);*/
-            break;
+    uint8_t local = 0;
+    uint8_t idSens = 45;
+    //Serial.printf("Recebido do sensor %d\n",sens);
+    while(local<40) {
+        if (listaCadastroSensores[local][0] == 0) break;
+
+        if (listaCadastroSensores[local][0] == 1)
+        {
+            if(listaCadastroSensores[local][1] == sens) {
+                idSens = local+1;
+                break;
+            } else {
+                local++;
+            }
         }
     }
-    LcmVar vpSensor(sensores[idSens].value_VP);
+    if(idSens == 45) {
+        listaCadastroSensores[local][0] = 1;
+        listaCadastroSensores[local][1] = sens;
+        idSens = local + 1;
+    }
+    local = 0;
+    while (local<40)
+    {
+        if (sensores[local].ativo) {
+            if (sensores[local].ID_value_num == idSens)
+            {
+                idSens = local;
+                break;
+            }
+        }
+        local++;
+    }
+
+    LcmVar vpSensor(sensores[idSens].value_VP); //ESCREVENDO VALOR NA DISTANCIA
     sensores[idSens].value_num = valor;
     vpSensor.write(sensores[idSens].value_num);
+
     if (!sensores[idSens].ID_put) { //ADICIONA IDENTIFICADOR CONFORME NUMERO FISICO DO SENSOR
-        LcmVar vpIdSensor(sensores[idSens].ID_value_VP);
-        vpIdSensor.write(sensores[idSens].ID_value_num); // ID_value_num
-        sensores[idSens].ID_put = true;
+         LcmVar vpIdSensor(sensores[idSens].ID_value_VP);
+         vpIdSensor.write(sens); // ID_value_num
+         sensores[idSens].ID_put = true;
     }
 }
 
@@ -235,16 +263,8 @@ void objSensor::act_alerta(bool active)
             }
             local++;
         }
-        // Serial.print("##MENOR ");
-        // Serial.println(idSens1);
-        // Serial.print("##MAIOR ");
-        // Serial.println(idSens2);
         LcmVar retang1(sensores[idSens1].ret_VP);
         LcmVar retang2(sensores[idSens2].ret_VP);
-        /*Serial.print("S1: ");
-        Serial.print(sensores[idSens1].ret_VP);
-        Serial.print(" S2: ");
-        Serial.println(sensores[idSens2].ret_VP);*/
         if (toggleAlert) {
             retang1.write(2);
             retang2.write(2);

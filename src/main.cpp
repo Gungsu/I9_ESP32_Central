@@ -80,14 +80,14 @@ void initSens() {
 void distCheck(uint16_t nValue) {
   if (Alerta) 
     return;
-  //if (nValue<maior && nValue>menor) 
-  //  return;
-  std::list<uint32_t> numBerNodes = mesh.getNodeList();
+  /***VVV  CHECK IF DIFERENCE ON NODES VVV****/
+  std::list<uint32_t> numBerNodes = mesh.getNodeList(); 
   uint8_t nodesSize = numBerNodes.size();
   if (nodesSize != numTotalSensorAtivo) {
     numTotalSensorAtivo = nodesSize;
     objSensores.dist_sens(numTotalSensorAtivo, 0, 1);
   }
+  /***^^^  CHECK IF DIFERENCE ON NODES ^^^****/
   uint8_t cont,cont2;
   maior = 0;
   menor = 0xAFFF;
@@ -158,7 +158,7 @@ void setup() {
   mesh.onChangedConnections([]() {
     Serial.printf("Changed connection\n");
   });
-
+  
   initSens();
   Serial.println(" INICIANDO ");
 }
@@ -202,9 +202,21 @@ void loop() {
           //Serial.println("STOP");
           break;
         case 1: //PLAY
-          if (!Alerta) {
+          if (Alerta) break;
+          if(waitAlerta) {
+            but_stop();
+          } else {
             waitAlerta = true;
             iconPlay.write(1);
+            delay(600);
+            ST_up = !ST_up;
+            iconUp.write(!ST_up);
+            digitalWrite(PIN_MOT_UP, ST_up);
+          }
+          //Serial.println("PLAY");
+          break;
+        case 2: //UP
+            if (Alerta) break;
             if (!ST_down)
             {
               ST_down = !ST_down;
@@ -215,22 +227,7 @@ void loop() {
             ST_up = !ST_up;
             iconUp.write(!ST_up);
             digitalWrite(PIN_MOT_UP, ST_up);
-          }
-          //Serial.println("PLAY");
-          break;
-        case 2: //UP
-            if (Alerta) break;
-              if (!ST_down)
-              {
-                ST_down = !ST_down;
-                iconDown.write(!ST_down);
-                digitalWrite(PIN_MOT_DOWN, ST_down);
-                delay(600);
-              }
-              ST_up = !ST_up;
-              iconUp.write(!ST_up);
-              digitalWrite(PIN_MOT_UP, ST_up);
-              // Serial.println("UP");
+            // Serial.println("UP");
             break;
           case 3: // DOWN  RESET PROVISORIO
             if (Alerta)

@@ -10,14 +10,10 @@ class namedMesh : public painlessMesh {
         namedMesh() {
           auto cb = [this](uint32_t from, String &msg) {
           // Try to parse it.. Need to test it with non json function
-#if ARDUINOJSON_VERSION_MAJOR>=6
             DynamicJsonDocument jsonBuffer(1024 + msg.length());
             deserializeJson(jsonBuffer, msg);
             JsonObject root = jsonBuffer.as<JsonObject>();
-#else
-            DynamicJsonBuffer jsonBuffer;
-            JsonObject &root = jsonBuffer.parseObject(msg);
-#endif
+
             if (root.containsKey("topic") &&
                 String("nameBroadCast").equals(root["topic"].as<String>())) {
               nameMap[from] = root["name"].as<String>();
@@ -58,19 +54,11 @@ class namedMesh : public painlessMesh {
                         [this]() {
                             String msg;
                             // Create arduinoJson msg
-#if ARDUINOJSON_VERSION_MAJOR>=6
                             DynamicJsonDocument jsonBuffer(1024);
                             JsonObject root = jsonBuffer.to<JsonObject>();
                             root["topic"] = "nameBroadCast";
                             root["name"] = this->getName();
                             serializeJson(root, msg);
-#else
-                            DynamicJsonBuffer jsonBuffer;
-                            JsonObject& root = jsonBuffer.createObject();
-                            root["topic"] = "nameBroadCast";
-                            root["name"] = this->getName();
-                            root.printTo(msg);
-#endif
                             this->sendBroadcast(msg);
                         }
                 );
